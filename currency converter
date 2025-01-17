@@ -1,0 +1,150 @@
+import java.sql.*;
+import java.util.*;
+
+public class CurrencyExpenseTracker {
+
+    private static final String DB_URL = "jdbc:sqlite:expenses.db";
+
+    public static void main(String[] args) {
+        try (Connection conn = DriverManager.getConnection(DB_URL)) {
+            createDatabase(conn);
+            
+            Scanner scanner = new Scanner(System.in);
+            boolean running = true;
+
+            while (running) {
+                System.out.println("\n--- Currency Expense Tracker ---");
+                System.out.println("1. Add Expense");
+                System.out.println("2. Edit Expense");
+                System.out.println("3. Delete Expense");
+                System.out.println("4. View Expenses");
+                System.out.println("5. Generate Report");
+                System.out.println("6. Exit");
+                System.out.print("Choose an option: ");
+
+                int choice = scanner.nextInt();
+                scanner.nextLine(); // consume newline
+
+                switch (choice) {
+                    case 1 -> addExpense(conn, scanner);
+                    case 2 -> editExpense(conn, scanner);
+                    case 3 -> deleteExpense(conn, scanner);
+                    case 4 -> viewExpenses(conn);
+                    case 5 -> generateReport(conn);
+                    case 6 -> running = false;
+                    default -> System.out.println("Invalid choice. Please try again.");
+                }
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static void createDatabase(Connection conn) throws SQLException {
+        String createTableSQL = "CREATE TABLE IF NOT EXISTS expenses ("
+                + "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                + "amount REAL,"
+                + "category TEXT,"
+                + "date TEXT"
+                + ");";
+        try (Statement stmt = conn.createStatement()) {
+            stmt.execute(createTableSQL);
+        }
+    }
+
+    private static void addExpense(Connection conn, Scanner scanner) {
+        System.out.print("Enter amount: ");
+        double amount = scanner.nextDouble();
+        scanner.nextLine(); // consume newline
+        System.out.print("Enter category: ");
+        String category = scanner.nextLine();
+        System.out.print("Enter date (YYYY-MM-DD): ");
+        String date = scanner.nextLine();
+
+        String insertSQL = "INSERT INTO expenses (amount, category, date) VALUES (?, ?, ?)";
+        try (PreparedStatement pstmt = conn.prepareStatement(insertSQL)) {
+            pstmt.setDouble(1, amount);
+            pstmt.setString(2, category);
+            pstmt.setString(3, date);
+            pstmt.executeUpdate();
+            System.out.println("Expense added successfully.");
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static void editExpense(Connection conn, Scanner scanner) {
+        System.out.print("Enter expense ID to edit: ");
+        int id = scanner.nextInt();
+        scanner.nextLine(); // consume newline
+
+        System.out.print("Enter new amount: ");
+        double amount = scanner.nextDouble();
+        scanner.nextLine();
+        System.out.print("Enter new category: ");
+        String category = scanner.nextLine();
+        System.out.print("Enter new date (YYYY-MM-DD): ");
+        String date = scanner.nextLine();
+
+        String updateSQL = "UPDATE expenses SET amount = ?, category = ?, date = ? WHERE id = ?";
+        try (PreparedStatement pstmt = conn.prepareStatement(updateSQL)) {
+            pstmt.setDouble(1, amount);
+            pstmt.setString(2, category);
+            pstmt.setString(3, date);
+            pstmt.setInt(4, id);
+            int rowsAffected = pstmt.executeUpdate();
+            if (rowsAffected > 0) {
+                System.out.println("Expense updated successfully.");
+            } else {
+                System.out.println("Expense ID not found.");
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static void deleteExpense(Connection conn, Scanner scanner) {
+        System.out.print("Enter expense ID to delete: ");
+        int id = scanner.nextInt();
+
+        String deleteSQL = "DELETE FROM expenses WHERE id = ?";
+        try (PreparedStatement pstmt = conn.prepareStatement(deleteSQL)) {
+            pstmt.setInt(1, id);
+            int rowsAffected = pstmt.executeUpdate();
+            if (rowsAffected > 0) {
+                System.out.println("Expense deleted successfully.");
+            } else {
+                System.out.println("Expense ID not found.");
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static void viewExpenses(Connection conn) {
+        String selectSQL = "SELECT * FROM expenses";
+        try (Statement stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery(selectSQL)) {
+            System.out.println("\n--- Expenses ---");
+            while (rs.next()) {
+                System.out.printf("ID: %d | Amount: %.2f | Category: %s | Date: %s\n",
+                        rs.getInt("id"), rs.getDouble("amount"), rs.getString("category"), rs.getString("date"));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static void generateReport(Connection conn) {
+        String selectSQL = "SELECT category, SUM(amount) as total FROM expenses GROUP BY category";
+        try (Statement stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery(selectSQL)) {
+            System.out.println("\n--- Expense Report ---");
+            while (rs.next()) {
+                System.out.printf("Category: %s | Total Amount: %.2f\n",
+                        rs.getString("category"), rs.getDouble("total"));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+}
