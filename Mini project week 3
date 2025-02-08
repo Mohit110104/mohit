@@ -1,0 +1,176 @@
+1. DatabaseManager.java (Handles Database Connection)
+
+import java.sql.*;
+
+public class DatabaseManager {
+    private static final String URL = "jdbc:sqlite:expenses.db";
+
+    static {
+        try {
+            Class.forName("org.sqlite.JDBC");
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static Connection getConnection() throws SQLException {
+        return DriverManager.getConnection(URL);
+    }
+
+    public static void initializeDatabase() {
+        String createUsersTable = "CREATE TABLE IF NOT EXISTS users (" +
+                                  "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                                  "name TEXT UNIQUE NOT NULL)";
+        
+        String createExpensesTable = "CREATE TABLE IF NOT EXISTS expenses (" +
+                                     "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                                     "user_id INTEGER NOT NULL, " +
+                                     "amount REAL NOT NULL, " +
+                                     "description TEXT, " +
+                                     "FOREIGN KEY (user_id) REFERENCES users(id))";
+
+        try (Connection conn = getConnection();
+             Statement stmt = conn.createStatement()) {
+            stmt.execute(createUsersTable);
+            stmt.execute(createExpensesTable);
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+}
+
+2. ExpenseManager.java (Handles Expense Logic)
+
+import java.sql.*;
+import java.util.HashMap;
+import java.util.Map;
+
+public class ExpenseManager {
+    public static void addUser(String name) {
+        String query = "INSERT INTO users (name) VALUES (?)";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query)) {
+            stmt.setString(1, name);
+            stmt.executeUpdate();
+            System.out.println("User added successfully.");
+        } catch (SQLException e) {
+            System.out.println("User already exists.");
+        }
+    }
+
+    public static void addExpense(String userName, double amount, String description) {
+        String query = "INSERT INTO expenses (user_id, amount, description) VALUES " +
+                       "((SELECT id FROM users WHERE name = ?), ?, ?)";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query)) {
+            stmt.setString(1, userName);
+            stmt.setDouble(2, amount);
+            stmt.setString(3, description);
+            stmt.executeUpdate();
+            System.out.println("Expense added successfully.");
+        } catch (SQLException e) {
+            System.out.println("Error adding expense.");
+        }
+    }
+
+    public static void calculateBalances() {
+        String query = "SELECT u.name, SUM(e.amount) AS total FROM users u " +
+                       "LEFT JOIN expenses e ON u.id = e.user_id GROUP BY u.id";
+
+        Map<String, Double> balances = new HashMap<>();
+        double totalExpense = 0.0;
+        int userCount = 0;
+
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query);
+             ResultSet rs = stmt.executeQuery()) {
+            while (rs.next()) {
+                String user = rs.getString("name");
+                double total = rs.getDouble("total");
+                balances.put(user, total);
+                totalExpense += total;
+                userCount++;
+            }
+        } catch (SQLException e) {
+            System.out.println("Error calculating balances.");
+            return;
+        }
+
+        if (userCount == 0) {
+            System.out.println("No users or expenses found.");
+            return;
+        }
+
+        double equalShare = totalExpense / userCount;
+        System.out.println("\n===== Balance Sheet =====");
+        for (Map.Entry<String, Double> entry : balances.entrySet()) {
+            double balance = entry.getValue() - equalShare;
+            System.out.printf("%s: %s%.2f%n", entry.getKey(), balance < 0 ? "owes $" : "gets back $", Math.abs(balance));
+        }
+    }
+}
+
+3. ExpenseSharingApp.java (Main Application)
+
+import java.util.Scanner;
+
+public class ExpenseSharingApp {
+    private static final Scanner scanner = new Scanner(System.in);
+
+    public static void main(String[] args) {
+        DatabaseManager.initializeDatabase();
+
+        while (true) {
+            System.out.println("\n===== Expense Sharing App =====");
+            System.out.println("1. Add User");
+            System.out.println("2. Add Expense");
+            System.out.println("3. Calculate Balances");
+            System.out.println("4. Exit");
+            System.out.print("Enter your choice: ");
+
+            int choice = scanner.nextInt();
+            scanner.nextLine();
+
+            switch (choice) {
+                case 1 -> addUser();
+                case 2 -> addExpense();
+                case 3 -> ExpenseManager.calculateBalances();
+                case 4 -> {
+                    System.out.println("Exiting...");
+                    return;
+                }
+                default -> System.out.println("Invalid choice! Please try again.");
+            }
+        }
+    }
+
+    private static void addUser() {
+        System.out.print("Enter user name: ");
+        String name = scanner.nextLine();
+        ExpenseManager.addUser(name);
+    }
+
+    private static void addExpense() {
+        System.out.print("Enter user name: ");
+        String name = scanner.nextLine();
+
+        System.out.print("Enter expense amount: ");
+        double amount = scanner.nextDouble();
+        scanner.nextLine();
+
+        System.out.print("Enter description: ");
+        String description = scanner.nextLine();
+
+        ExpenseManager.addExpense(name, amount, description);
+    }
+}
+
+Running the Program
+	1.	Compile:
+
+javac -cp ".;sqlite-jdbc.jar" *.java
+
+
+	2.	Run:
+
+java -cp ".;sqlite-jdbc.jar" ExpenseSharingApp
