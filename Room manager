@@ -1,0 +1,66 @@
+import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
+
+public class RoomManager {
+    public static List<String> getAvailableRooms() {
+        List<String> rooms = new ArrayList<>();
+        String query = "SELECT room_id, type, price FROM rooms WHERE availability = 1";
+
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query);
+             ResultSet rs = stmt.executeQuery()) {
+            while (rs.next()) {
+                rooms.add("Room " + rs.getInt("room_id") + " - " + rs.getString("type") + " ($" + rs.getDouble("price") + ")");
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return rooms;
+    }
+
+    public static boolean bookRoom(int roomId, String guestName, String checkIn, String checkOut) {
+        String insertQuery = "INSERT INTO reservations (guest_name, room_id, check_in, check_out) VALUES (?, ?, ?, ?)";
+        String updateQuery = "UPDATE rooms SET availability = 0 WHERE room_id = ?";
+
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(insertQuery);
+             PreparedStatement updateStmt = conn.prepareStatement(updateQuery)) {
+
+            stmt.setString(1, guestName);
+            stmt.setInt(2, roomId);
+            stmt.setString(3, checkIn);
+            stmt.setString(4, checkOut);
+            int rowsInserted = stmt.executeUpdate();
+
+            updateStmt.setInt(1, roomId);
+            updateStmt.executeUpdate();
+
+            return rowsInserted > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+    public static boolean cancelReservation(int roomId) {
+        String deleteQuery = "DELETE FROM reservations WHERE room_id = ?";
+        String updateQuery = "UPDATE rooms SET availability = 1 WHERE room_id = ?";
+
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(deleteQuery);
+             PreparedStatement updateStmt = conn.prepareStatement(updateQuery)) {
+
+            stmt.setInt(1, roomId);
+            int rowsDeleted = stmt.executeUpdate();
+
+            updateStmt.setInt(1, roomId);
+            updateStmt.executeUpdate();
+
+            return rowsDeleted > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+}
