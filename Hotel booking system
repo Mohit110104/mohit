@@ -1,0 +1,78 @@
+import java.util.List;
+import java.util.Scanner;
+
+public class HotelBookingSystem {
+    private static final Scanner scanner = new Scanner(System.in);
+
+    public static void main(String[] args) {
+        DatabaseManager.initializeDatabase();
+
+        while (true) {
+            System.out.println("\n===== Hotel Booking System =====");
+            System.out.println("1. View Available Rooms");
+            System.out.println("2. Book a Room");
+            System.out.println("3. Cancel a Reservation");
+            System.out.println("4. Exit");
+            System.out.print("Enter your choice: ");
+
+            int choice = scanner.nextInt();
+            scanner.nextLine();
+
+            switch (choice) {
+                case 1 -> viewRooms();
+                case 2 -> bookRoom();
+                case 3 -> cancelReservation();
+                case 4 -> {
+                    System.out.println("Exiting...");
+                    return;
+                }
+                default -> System.out.println("Invalid choice! Please try again.");
+            }
+        }
+    }
+
+    private static void viewRooms() {
+        List<String> rooms = RoomManager.getAvailableRooms();
+        if (rooms.isEmpty()) {
+            System.out.println("No rooms available.");
+        } else {
+            System.out.println("\nAvailable Rooms:");
+            for (String room : rooms) {
+                System.out.println(room);
+            }
+        }
+    }
+
+    private static void bookRoom() {
+        System.out.print("Enter guest name: ");
+        String name = scanner.nextLine();
+
+        System.out.print("Enter room ID to book: ");
+        int roomId = scanner.nextInt();
+        scanner.nextLine();
+
+        System.out.print("Enter check-in date (YYYY-MM-DD): ");
+        String checkIn = scanner.nextLine();
+
+        System.out.print("Enter check-out date (YYYY-MM-DD): ");
+        String checkOut = scanner.nextLine();
+
+        if (RoomManager.bookRoom(roomId, name, checkIn, checkOut)) {
+            System.out.println("Room booked successfully!");
+        } else {
+            System.out.println("Failed to book room.");
+        }
+    }
+
+    private static void cancelReservation() {
+        System.out.print("Enter room ID to cancel reservation: ");
+        int roomId = scanner.nextInt();
+        scanner.nextLine();
+
+        if (RoomManager.cancelReservation(roomId)) {
+            System.out.println("Reservation cancelled successfully!");
+        } else {
+            System.out.println("No reservation found for this room.");
+        }
+    }
+}
