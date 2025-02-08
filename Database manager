@@ -1,0 +1,42 @@
+
+import java.sql.*;
+
+public class DatabaseManager {
+    private static final String URL = "jdbc:sqlite:hotel.db";
+
+    static {
+        try {
+            Class.forName("org.sqlite.JDBC");
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static Connection getConnection() throws SQLException {
+        return DriverManager.getConnection(URL);
+    }
+
+    public static void initializeDatabase() {
+        String roomsTable = "CREATE TABLE IF NOT EXISTS rooms (" +
+                            "room_id INTEGER PRIMARY KEY, " +
+                            "type TEXT NOT NULL, " +
+                            "price REAL NOT NULL, " +
+                            "availability INTEGER NOT NULL CHECK(availability IN (0,1)))";
+
+        String reservationsTable = "CREATE TABLE IF NOT EXISTS reservations (" +
+                                   "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                                   "guest_name TEXT NOT NULL, " +
+                                   "room_id INTEGER NOT NULL, " +
+                                   "check_in TEXT NOT NULL, " +
+                                   "check_out TEXT NOT NULL, " +
+                                   "FOREIGN KEY (room_id) REFERENCES rooms(room_id))";
+
+        try (Connection conn = getConnection();
+             Statement stmt = conn.createStatement()) {
+            stmt.execute(roomsTable);
+            stmt.execute(reservationsTable);
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+}
